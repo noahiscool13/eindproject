@@ -73,4 +73,30 @@ class Maze:
             out.append(((x, y),t))
         return out
 
+    def reachable_from_with_waypoints(self,pos, constraints=None):
+        if not constraints:
+            constraints = []
+        (x,y),t,waypoints = pos
+        t+=1
+        out = []
+        if x>0:
+            if not self.grid[y][x-1]:
+                if (x-1,y,t) not in constraints:
+                    out.append(((x-1,y),t,waypoints-{(x-1,y)}))
+        if x+1<self.width:
+            if not self.grid[y][x+1]:
+                if (x+1,y,t) not in constraints:
+                    out.append(((x+1,y),t,waypoints-{(x+1,y)}))
+        if y>0:
+            if not self.grid[y-1][x]:
+                if (x,y-1,t) not in constraints:
+                    out.append(((x,y-1),t,waypoints-{(x,y-1)}))
+        if y+1<self.height:
+            if not self.grid[y+1][x]:
+                if (x,y+1,t) not in constraints:
+                    out.append(((x,y+1),t,waypoints-{(x,y+1)}))
+        if (x, y, t) not in constraints:
+            out.append(((x, y),t,waypoints))
+        return out
+
 # Maze.from_image("test_maze_1.png")

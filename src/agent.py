@@ -7,10 +7,10 @@ class Agent:
         if waypoints:
             self.waypoints = waypoints
         else:
-            self.waypoints = []
+            self.waypoints = set()
 
     def add_waypoint(self, point):
-        self.waypoints.append(point)
+        self.waypoints.add(point)
 
     def set_start(self, point):
         self.start = point[:]

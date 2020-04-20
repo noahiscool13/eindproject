@@ -18,14 +18,20 @@ def reconstruct_path(came_from, current):
 def manhatan(pos, goal):
     return abs(pos[0][0] - goal[0]) + abs(pos[0][1] - goal[1])
 
+def waypointheuristic(pos,goal,waypoints):
+    if not waypoints:
+        return manhatan(pos,goal)
+    furtherst = max(waypoints,key=lambda waypoint:manhatan(pos,waypoint))
+    return manhatan(pos,furtherst)+len(waypoints)-1+manhatan((furtherst,0),goal)
+
 
 def astar(maze, start, goal, h, constraints=None):
-    open_set = {(start,0)}
+    open_set = {(start, 0)}
     came_from = dict()
     gscore = defaultdict(constant_factory(inf))
-    gscore[(start,0)] = 0
+    gscore[(start, 0)] = 0
     fscore = defaultdict(constant_factory(inf))
-    fscore[(start,0)] = h((start,0),goal)
+    fscore[(start, 0)] = h((start, 0), goal)
 
     while open_set:
         current = min(open_set, key=lambda x: fscore[x])
@@ -45,8 +51,35 @@ def astar(maze, start, goal, h, constraints=None):
     return None
 
 
+def astarwp(maze, start, goal,waypoints, h, constraints=None):
+    start_state = (start, 0,frozenset(waypoints))
+    open_set = {start_state}
+    came_from = dict()
+    gscore = defaultdict(constant_factory(inf))
+    gscore[start_state] = 0
+    fscore = defaultdict(constant_factory(inf))
+    fscore[start_state] = h(start_state, goal,waypoints)
+
+    while open_set:
+        current = min(open_set, key=lambda x: fscore[x])
+        if current[0] == goal and not current[2]:
+            return reconstruct_path(came_from, current)
+
+        open_set.remove(current)
+        for neighbor in maze.reachable_from_with_waypoints(current, constraints=constraints):
+            tentative_gscore = gscore[current] + 1
+            if tentative_gscore < gscore[neighbor]:
+                came_from[neighbor] = current
+                gscore[neighbor] = tentative_gscore
+                fscore[neighbor] = tentative_gscore + h(neighbor, goal,waypoints)
+                open_set.add(neighbor)
+
+    print("NO PATH FOUND!!")
+    return None
+
+
 class Constraint:
-    def __init__(self, agent, place,time):
+    def __init__(self, agent, place, time):
         self.agent = agent
         self.place = place[0]
         if time:
@@ -141,27 +174,30 @@ class Solution:
             for a1 in range(len(self.paths)):
                 for a2 in range(a1):
                     if len(self.paths[a1]) > t and len(self.paths[a2]) > t:
-                        if self.paths[a1][t] == self.paths[a2][t]:
+                        if self.paths[a1][t][:2] == self.paths[a2][t][:2]:
                             return PointConflict(self.paths[a1].agent, self.paths[a2].agent, self.paths[a1][t], t)
                     if len(self.paths[a1]) > t + 1 and len(self.paths[a2]) > t + 1:
-                        if self.paths[a1][t][0] == self.paths[a2][t + 1][0] and self.paths[a1][t + 1][0] == self.paths[a2][t][0]:
+                        if self.paths[a1][t][0] == self.paths[a2][t + 1][0] and self.paths[a1][t + 1][0] == \
+                                self.paths[a2][t][0]:
                             return EdgeConflict(self.paths[a1].agent, self.paths[a2].agent, self.paths[a1][t],
                                                 self.paths[a2][t], t)
         return None
 
     def __str__(self):
-        return "<Solution:\n"+"\n".join(str(path) for path in self.paths)
+        return "<Solution:\n" + "\n".join(str(path) for path in self.paths)
 
 
 def solve(maze, constraints):
     paths = []
     for agent in maze.agents:
-        a_path = astar(maze, agent.start, agent.goal, manhatan,
+        # a_path = astar(maze, agent.start, agent.goal, manhatan,
+        #                SingleAgentCosntraints.from_constraints(agent, constraints))
+        a_path = astarwp(maze, agent.start, agent.goal, agent.waypoints, waypointheuristic,
                        SingleAgentCosntraints.from_constraints(agent, constraints))
         if a_path is None:
             print("No Path with constraints")
             return None
-        paths.append(Path(agent,a_path))
+        paths.append(Path(agent, a_path))
     return Solution(paths)
 
 
@@ -174,12 +210,13 @@ def CBS(maze):
         p = min(open_set, key=lambda x: x.cost)
         open_set.remove(p)
         conflict = p.solution.find_conflict()
+        print(len(p.constraints))
         if conflict is None:
-            return p
-        if isinstance(conflict,PointConflict):
+            return p.solution
+        if isinstance(conflict, PointConflict):
             a = Node()
-            a.constraints = p.constraints+[Constraint(conflict.agent_1,conflict.place,conflict.time)]
-            a.solution = solve(maze,a.constraints)
+            a.constraints = p.constraints + [Constraint(conflict.agent_1, conflict.place, conflict.time)]
+            a.solution = solve(maze, a.constraints)
             if a.solution:
                 a.cost = a.solution.sum_of_individual_costs()
                 open_set.add(a)
@@ -191,16 +228,16 @@ def CBS(maze):
                 b.cost = b.solution.sum_of_individual_costs()
                 open_set.add(b)
 
-        elif isinstance(conflict,EdgeConflict):
+        elif isinstance(conflict, EdgeConflict):
             a = Node()
-            a.constraints = p.constraints + [Constraint(conflict.agent_1, conflict.place_2, conflict.time+1)]
+            a.constraints = p.constraints + [Constraint(conflict.agent_1, conflict.place_2, conflict.time + 1)]
             a.solution = solve(maze, a.constraints)
             if a.solution:
                 a.cost = a.solution.sum_of_individual_costs()
                 open_set.add(a)
 
             b = Node()
-            b.constraints = p.constraints + [Constraint(conflict.agent_2, conflict.place_1, conflict.time+1)]
+            b.constraints = p.constraints + [Constraint(conflict.agent_2, conflict.place_1, conflict.time + 1)]
             b.solution = solve(maze, b.constraints)
             if b.solution:
                 b.cost = b.solution.sum_of_individual_costs()
