@@ -47,11 +47,15 @@ def astar(maze, start, goal, h, constraints=None):
                 fscore[neighbor] = tentative_gscore + h(neighbor, goal)
                 open_set.add(neighbor)
 
-    print("NO PATH FOUND!!")
+    # print("NO PATH FOUND!!")
     return None
 
 
 def astarwp(maze, start, goal,waypoints, h, constraints=None):
+
+    if (start[0],start[1],0) in constraints:
+        return None
+
     start_state = (start, 0,frozenset(waypoints))
     open_set = {start_state}
     came_from = dict()
@@ -63,7 +67,8 @@ def astarwp(maze, start, goal,waypoints, h, constraints=None):
     while open_set:
         current = min(open_set, key=lambda x: fscore[x])
         if current[0] == goal and not current[2]:
-            return reconstruct_path(came_from, current)
+            if not constraints or current[1]>=max(constraints,key=lambda x:x.time).time:
+                return reconstruct_path(came_from, current)
 
         open_set.remove(current)
         for neighbor in maze.reachable_from_with_waypoints(current, constraints=constraints):
@@ -105,6 +110,13 @@ class SingleAgentCosntraints:
     def __contains__(self, item):
         return item in self.constraints
 
+    def __iter__(self):
+        for constraint in self.constraints:
+            yield constraint
+
+    def __bool__(self):
+        return bool(self.constraints)
+
     @staticmethod
     def from_constraints(agent, constraints):
         return SingleAgentCosntraints([constraint for constraint in constraints if constraint.agent == agent])
@@ -124,6 +136,13 @@ class EdgeConflict:
         self.agent_2 = agent_2
         self.place_1 = place_1
         self.place_2 = place_2
+        self.time = time
+
+class SlideConflict:
+    def __init__(self, agent_1, agent_2, place, time):
+        self.agent_1 = agent_1
+        self.agent_2 = agent_2
+        self.place = place
         self.time = time
 
 
@@ -173,14 +192,20 @@ class Solution:
         for t in range(longest_path_length):
             for a1 in range(len(self.paths)):
                 for a2 in range(a1):
-                    if len(self.paths[a1]) > t and len(self.paths[a2]) > t:
-                        if self.paths[a1][t][:2] == self.paths[a2][t][:2]:
-                            return PointConflict(self.paths[a1].agent, self.paths[a2].agent, self.paths[a1][t], t)
+                    # if len(self.paths[a1]) > t and len(self.paths[a2]) > t:
+                    if self.paths[a1][min(t,len(self.paths[a1])-1)][0] == self.paths[a2][min(t,len(self.paths[a2])-1)][0]:
+                        return PointConflict(self.paths[a1].agent, self.paths[a2].agent, self.paths[a1][min(t,len(self.paths[a1])-1)], t)
                     if len(self.paths[a1]) > t + 1 and len(self.paths[a2]) > t + 1:
                         if self.paths[a1][t][0] == self.paths[a2][t + 1][0] and self.paths[a1][t + 1][0] == \
                                 self.paths[a2][t][0]:
                             return EdgeConflict(self.paths[a1].agent, self.paths[a2].agent, self.paths[a1][t],
                                                 self.paths[a2][t], t)
+                    if len(self.paths[a1]) > t+1 and len(self.paths[a2]) > t+1:
+                        if (abs(self.paths[a1][t][0][0]-self.paths[a1][t+1][0][0]) or abs(self.paths[a1][t][0][1]-self.paths[a1][t+1][0][1])) and (abs(self.paths[a1][t][0][0]-self.paths[a1][t+1][0][0]) == abs(self.paths[a2][t][1]-self.paths[a2][t+1][0][1]) or abs(self.paths[a1][t][0][1]-self.paths[a1][t+1][0][1]) == abs(self.paths[a2][t][0][0]-self.paths[a2][t+1][0][0])):
+                            if self.paths[a1][t + 1][:1] == self.paths[a2][t][:1]:
+                                return SlideConflict(self.paths[a1].agent, self.paths[a2].agent, self.paths[a2][t], t)
+                            if self.paths[a2][t + 1][:1] == self.paths[a1][t][:1]:
+                                return SlideConflict(self.paths[a2].agent, self.paths[a1].agent, self.paths[a1][t], t)
         return None
 
     def __str__(self):
@@ -238,6 +263,21 @@ def CBS(maze):
 
             b = Node()
             b.constraints = p.constraints + [Constraint(conflict.agent_2, conflict.place_1, conflict.time + 1)]
+            b.solution = solve(maze, b.constraints)
+            if b.solution:
+                b.cost = b.solution.sum_of_individual_costs()
+                open_set.add(b)
+
+        elif isinstance(conflict, SlideConflict):
+            a = Node()
+            a.constraints = p.constraints + [Constraint(conflict.agent_1, conflict.place, conflict.time + 1)]
+            a.solution = solve(maze, a.constraints)
+            if a.solution:
+                a.cost = a.solution.sum_of_individual_costs()
+                open_set.add(a)
+
+            b = Node()
+            b.constraints = p.constraints + [Constraint(conflict.agent_2, conflict.place, conflict.time)]
             b.solution = solve(maze, b.constraints)
             if b.solution:
                 b.cost = b.solution.sum_of_individual_costs()

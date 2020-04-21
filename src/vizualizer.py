@@ -23,8 +23,9 @@ def create_frame(maze, paths, t):
 
     for agent in maze.agents:
         for waypoint in agent.waypoints:
-            col = agent_to_col(agent,50)
-            draw.rectangle([size*waypoint[0],size*waypoint[1],size*waypoint[0]+size-1,size*waypoint[1]+size-1], col)
+            col = agent_to_col(agent,0)
+            draw.ellipse([size*waypoint[0]+size//4,size*waypoint[1]+size//4,size*waypoint[0]+size-1-size//4,size*waypoint[1]+size-1-size//4],col)
+            # draw.rectangle([size*waypoint[0],size*waypoint[1],size*waypoint[0]+size-1,size*waypoint[1]+size-1], col)
         col = agent_to_col(agent, 80)
         draw.rectangle([size*agent.goal[0],size*agent.goal[1],size*agent.goal[0]+size-1,size*agent.goal[1]+size-1], col)
 
@@ -40,15 +41,14 @@ def create_frame(maze, paths, t):
 
         col = agent_to_col(path.agent)
 
+        draw.ellipse([true_pos[0],true_pos[1],
+                      true_pos[0]+size-1,true_pos[1]+size-1], col)
 
-        draw.rectangle((true_pos[0],true_pos[1],
-                      true_pos[0]+size-1,true_pos[1]+size-1),
-                     fill=col)
     return im
 
 
 def create_gif(file, maze, paths, speed):
-    im = [create_frame(maze, paths, t) for t in stepped_range(paths.max_of_individual_costs(),10)]
+    im = [create_frame(maze, paths, t) for t in stepped_range(paths.max_of_individual_costs(),20)]
     for x in range(len(im)):
         im[x] = im[x]
     im[0].save(file, save_all=True, append_images=im[1:], duration=speed, loop=0)
