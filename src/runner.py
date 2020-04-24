@@ -4,11 +4,13 @@ from src.CBS import astar, CBS
 from src.maze import Maze
 from src.vizualizer import create_frame, create_gif
 
+maze = Maze.from_image("test_maze_3.png")
+
 t = time()
 
-maze = Maze.from_image("test_maze_5.png")
+for x in range(10):
+    paths = CBS(maze)
 
-paths = CBS(maze)
-create_gif("test.gif",maze,paths,20)
+print(time() - t)
 
-print(time()-t)
+create_gif("test.gif", maze, paths, 20)

@@ -26,8 +26,8 @@ def create_frame(maze, paths, t):
             col = agent_to_col(agent,0)
             draw.ellipse([size*waypoint[0]+size//4,size*waypoint[1]+size//4,size*waypoint[0]+size-1-size//4,size*waypoint[1]+size-1-size//4],col)
             # draw.rectangle([size*waypoint[0],size*waypoint[1],size*waypoint[0]+size-1,size*waypoint[1]+size-1], col)
-        col = agent_to_col(agent, 80)
-        draw.rectangle([size*agent.goal[0],size*agent.goal[1],size*agent.goal[0]+size-1,size*agent.goal[1]+size-1], col)
+        col = agent_to_col(agent, 50)
+        draw.rectangle([size*agent.goal[0]+size//8,size*agent.goal[1]+size//8,size*agent.goal[0]+size-1-size//8,size*agent.goal[1]+size-1-size//8], col)
 
     for path in paths.paths:
         pos1 = path.path[min(floor(t),len(path.path)-1)][0]
