@@ -7,7 +7,7 @@ from src.agentpool import AgentPool
 
 class Maze:
     def __init__(self, grid, agents):
-        self.grid = grid
+        self.grid = np.array(grid,dtype=np.uint8)
         self.width = len(grid[0])
         self.height = len(grid)
 
