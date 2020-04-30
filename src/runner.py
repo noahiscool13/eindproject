@@ -4,11 +4,11 @@ from src.CBS import astar, CBS
 from src.maze import Maze
 from src.vizualizer import create_frame, create_gif
 
-maze = Maze.from_image("test_maze_3.png")
+maze = Maze.from_image("test_maze_14.png")
 
 t = time()
 
-for x in range(10):
+for x in range(1):
     paths = CBS(maze)
 
 print(time() - t)

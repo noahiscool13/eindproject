@@ -14,10 +14,10 @@ headers = {
 
 data = {
 	"algorithm": "CBS",
-	"version": "0"
+	"version": "stable"
 }
-# r = requests.post("https://mapfw.nl/api/benchmarks/2/problems",headers=headers,json=data)
-r = requests.post("http://127.0.0.1:5000/api/benchmarks/5/problems",headers=headers,json=data)
+r = requests.post("https://mapfw.nl/api/benchmarks/4/problems",headers=headers,json=data)
+# r = requests.post("http://127.0.0.1:5000/api/benchmarks/6/problems",headers=headers,json=data)
 
 n = r.json()
 problem = json.loads(r.json()["problems"][0]["problem"])
@@ -45,7 +45,7 @@ ans = {
 
 print(ans)
 
-# r = requests.post(f"https://mapfw.nl/api/attempts/{at_id}/solutions",headers=headers,json=ans)
-r = requests.post(f"http://127.0.0.1:5000/api/attempts/{at_id}/solutions",headers=headers,json=ans)
+r = requests.post(f"https://mapfw.nl/api/attempts/{at_id}/solutions",headers=headers,json=ans)
+# r = requests.post(f"http://127.0.0.1:5000/api/attempts/{at_id}/solutions",headers=headers,json=ans)
 
 print(r.content)
