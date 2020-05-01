@@ -7,6 +7,9 @@ from src.agent import Agent
 
 from itertools import chain, combinations, permutations
 
+from src.tsp import tdp
+
+
 def fast_min(a,b):
     return a if a<b else b
 
@@ -29,14 +32,33 @@ def reconstruct_path(came_from, current):
         total_path.append(current)
     return total_path[::-1]
 
+def tsp(p,waypoints,goal,data):
+    if (p,waypoints,goal) in data["wp"]:
+        return data["wp"][(p,waypoints,goal)]
+
+    rest = (point for point in waypoints if point != p)
+    best = inf
+    for perm in permutations(rest):
+        d = 0
+        cp = p
+        for tp in perm:
+            d+=data["direct"][tp][cp]
+            cp = tp
+        d+=data["direct"][goal][cp]
+        best = fast_min(best,d)
+    data["wp"][(p,frozenset(waypoints),goal)] = best
+    return best
+
 def perfect_heuristic(pos, goal, waypoints, data):
     sp = pos[0]
     if not waypoints:
         return data["direct"][goal][sp]
-    best = 999999999
+    if len(waypoints) == 1:
+        return data["direct"][list(waypoints)[0]][sp]+data["direct"][goal][list(waypoints)[0]]
+    best = inf
     for p in waypoints:
         d = data["direct"][p][sp]
-        d+= data["wp"][(p,frozenset(waypoints))]
+        d+= tdp(p,frozenset(waypoints),goal,data)
         best = fast_min(best,d)
     return best
 
@@ -144,40 +166,49 @@ def astarwpcat(maze,agent, start, goal, waypoints, h, upper, constraints=None):
     return None
 
 
-
+from heapq import *
 def astarwpcath(maze,agent, start, goal, waypoints, h, upper,data, constraints=None):
     if (start[0], start[1], 0) in constraints:
         return None
 
     start_state = (start, 0, frozenset(waypoints))
-    open_set = {start_state}
+
     came_from = dict()
     gscore = defaultdict(constant_factory(inf))
     gscore[start_state] = 0
     fscore = defaultdict(constant_factory(inf))
     fscore[start_state] = h(start_state, goal, waypoints,data)
 
+    open_set = []
+    heappush(open_set, (fscore[start_state], start_state))
+    close_set = set()
+
     while open_set:
-        current = min_test(open_set, key=lambda x: fscore[x])
+        current = heappop(open_set)[1]
+        # current = min_test(open_set, key=lambda x: fscore[x])
         if current[0] == goal and not current[2]:
             if not constraints or current[1] >= max(constraints, key=lambda x: x.time).time:
                 return reconstruct_path(came_from, current)
 
-        open_set.remove(current)
+        # open_set.remove(current)
+        close_set.add(current)
         for neighbor in maze.reachable_from_with_waypoints(current, constraints=constraints):
             cat_hit = 0
             for path in upper.solution:
                 if agent == path.agent:
                     continue
                 if path[fast_min(neighbor[1], len(path) - 1)][0] == neighbor[0]:
-                    cat_hit += 0.00001
+                    cat_hit += 0.001
                     break
             tentative_gscore = gscore[current] + 1 + cat_hit
+            if neighbor in close_set and tentative_gscore>gscore[neighbor]:
+                continue
             if tentative_gscore < gscore[neighbor]:
                 came_from[neighbor] = current
                 gscore[neighbor] = tentative_gscore
-                fscore[neighbor] = tentative_gscore + h(neighbor, goal, waypoints,data)
-                open_set.add(neighbor)
+                fscore[neighbor] = tentative_gscore + h(neighbor, goal, neighbor[2],data)*1.0000001
+                # open_set.add(neighbor)
+                heappush(open_set, (fscore[neighbor], neighbor))
 
     print("NO PATH FOUND!!")
     return None
@@ -387,13 +418,14 @@ def flood_dists(maze, pos):
     discovered = {pos}
     dists = {pos: 0}
     while q:
-        v = q.pop()
+        v = q.pop(0)
         for w in maze.reachable_from_pos(v):
             if not w in discovered:
                 discovered.add(w)
                 dists[w]=dists[v]+1
                 q.append(w)
     return dists
+
 
 
 def CBS(maze):
@@ -406,24 +438,24 @@ def CBS(maze):
     print("p1")
 
     compl_dists = dict()
-    for agent in maze.agents:
-        open_waypoints = powerset(agent.waypoints)
-        for waypoint_combi in open_waypoints:
-            print(waypoint_combi)
-            if not waypoint_combi:
-                continue
-            for start_point in waypoint_combi:
-                rest = (point for point in waypoint_combi if point != start_point)
-                best = inf
-                for perm in permutations(rest):
-                    d = 0
-                    cp = start_point
-                    for tp in perm:
-                        d+=dist_data[tp][cp]
-                        cp = tp
-                    d+=dist_data[agent.goal][cp]
-                    best = fast_min(best,d)
-                compl_dists[(start_point,frozenset(waypoint_combi))] = best
+    # for agent in maze.agents:
+    #     open_waypoints = powerset(agent.waypoints)
+    #     for waypoint_combi in open_waypoints:
+    #         print(waypoint_combi)
+    #         if not waypoint_combi:
+    #             continue
+    #         for start_point in waypoint_combi:
+    #             rest = (point for point in waypoint_combi if point != start_point)
+    #             best = inf
+    #             for perm in permutations(rest):
+    #                 d = 0
+    #                 cp = start_point
+    #                 for tp in perm:
+    #                     d+=dist_data[tp][cp]
+    #                     cp = tp
+    #                 d+=dist_data[agent.goal][cp]
+    #                 best = fast_min(best,d)
+    #             compl_dists[(start_point,frozenset(waypoint_combi))] = best
 
     heuristic_data = {"direct":dist_data,"wp":compl_dists}
 
