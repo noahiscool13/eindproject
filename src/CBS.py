@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from math import inf, atan, pi
 
+from src.MDD import MDD
 from src.agent import Agent
 
 from itertools import chain, combinations, permutations
@@ -346,21 +347,65 @@ class Solution:
     def max_of_individual_costs(self):
         return max(len(path) for path in self.paths)
 
-    def find_conflict(self, slide=False):
+    def find_worst_conflict(self,maze,data,mem=dict()):
+        confs = self.find_conflict(list_all=True)
+        if not confs:
+            return None
+        md = dict()
+        for p in self.paths:
+            a = p.agent
+            l = len(p)
+            if (a.start,frozenset(a.waypoints),a.goal,l) in mem:
+                md[a.name] = mem[(a.start,frozenset(a.waypoints),a.goal,l)]
+            else:
+                t = MDD(maze,a.start,a.waypoints,a.goal,l,data).g
+                md[a.name] = t
+                mem[(a.start,frozenset(a.waypoints),a.goal,l)] = t
+        semi_cardinal = None
+        for c in confs:
+            s = 0
+            if isinstance(c, PointConflict):
+                if len(md[c.agent_1.name][min(c.time,len(md[c.agent_1.name])-1)])<=1:
+                    s+=1
+                if len(md[c.agent_2.name][min(c.time,len(md[c.agent_2.name])-1)])<=1:
+                    s+=1
+            elif isinstance(c, EdgeConflict):
+                if len(md[c.agent_1.name][min(c.time+1,len(md[c.agent_1.name])-1)])<=1:
+                    s+=1
+                if len(md[c.agent_2.name][min(c.time+1,len(md[c.agent_2.name])-1)])<=1:
+                    s+=1
+            if s == 2:
+                return (c,s)
+            if s == 1 and not semi_cardinal:
+                semi_cardinal = c
+        if semi_cardinal:
+            return (semi_cardinal,1)
+        return (confs[0],0)
+
+    def find_conflict(self, slide=False,list_all=False):
         longest_path_length = self.max_of_individual_costs()
+        lst = []
         for t in range(longest_path_length):
             for a1 in range(len(self.paths)):
                 for a2 in range(a1):
                     # if len(self.paths[a1]) > t and len(self.paths[a2]) > t:
                     if self.paths[a1][min(t, len(self.paths[a1]) - 1)][0] == \
                             self.paths[a2][min(t, len(self.paths[a2]) - 1)][0]:
-                        return PointConflict(self.paths[a1].agent, self.paths[a2].agent,
+                        conf = PointConflict(self.paths[a1].agent, self.paths[a2].agent,
                                              self.paths[a1][min(t, len(self.paths[a1]) - 1)], t)
+                        if list_all:
+                            lst.append(conf)
+                        else:
+                            return conf
                     if len(self.paths[a1]) > t + 1 and len(self.paths[a2]) > t + 1:
                         if self.paths[a1][t][0] == self.paths[a2][t + 1][0] and self.paths[a1][t + 1][0] == \
                                 self.paths[a2][t][0]:
-                            return EdgeConflict(self.paths[a1].agent, self.paths[a2].agent, self.paths[a1][t],
+                            conf = EdgeConflict(self.paths[a1].agent, self.paths[a2].agent, self.paths[a1][t],
                                                 self.paths[a2][t], t)
+                            if list_all:
+                                lst.append(conf)
+                            else:
+                                return conf
                     if slide:
                         if len(self.paths[a1]) > t + 1 and len(self.paths[a2]) > t + 1:
                             if (abs(self.paths[a1][t][0][0] - self.paths[a1][t + 1][0][0]) or abs(
@@ -375,7 +420,10 @@ class Solution:
                                 if self.paths[a2][t + 1][:1] == self.paths[a1][t][:1]:
                                     return SlideConflict(self.paths[a2].agent, self.paths[a1].agent, self.paths[a1][t],
                                                          t)
-        return None
+        if list_all:
+            return lst
+        else:
+            return None
 
     def __str__(self):
         return "<Solution:\n" + "\n".join(str(path) for path in self.paths)
@@ -468,25 +516,37 @@ def CBS(maze):
     while open_set:
         p = min(open_set, key=lambda x: x.cost)
         open_set.remove(p)
-        conflict = p.solution.find_conflict()
-        print(len(p.constraints))
+        conflict = p.solution.find_conflict(list_all=True)
+        print(len(conflict),len(p.constraints))
+        # conflict = p.solution.find_conflict()
+        conflict = p.solution.find_worst_conflict(maze,heuristic_data)
         if conflict is None:
-            # print(p.cost)
+            print(p.cost)
             return p.solution
+        conflict = conflict[0]
         if isinstance(conflict, PointConflict):
             a = Node()
             a.constraints = p.constraints + [Constraint(conflict.agent_1, conflict.place, conflict.time)]
             a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data)
             if a.solution:
                 a.cost = a.solution.sum_of_individual_costs()
-                open_set.add(a)
+                if a.cost == p.cost and len(a.solution.find_conflict(list_all=True)) < len(
+                        p.solution.find_conflict(list_all=True)):
+                    open_set.add(a)
+                    continue
 
             b = Node()
             b.constraints = p.constraints + [Constraint(conflict.agent_2, conflict.place, conflict.time)]
             b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data)
             if b.solution:
                 b.cost = b.solution.sum_of_individual_costs()
+                if b.cost == p.cost and len(b.solution.find_conflict(list_all=True)) < len(
+                        p.solution.find_conflict(list_all=True)):
+                    open_set.add(b)
+                    continue
                 open_set.add(b)
+            if a.solution:
+                open_set.add(a)
 
         elif isinstance(conflict, EdgeConflict):
             a = Node()
@@ -494,14 +554,23 @@ def CBS(maze):
             a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data)
             if a.solution:
                 a.cost = a.solution.sum_of_individual_costs()
-                open_set.add(a)
+                if a.cost == p.cost and len(a.solution.find_conflict(list_all=True)) < len(
+                        p.solution.find_conflict(list_all=True)):
+                    open_set.add(a)
+                    continue
 
             b = Node()
             b.constraints = p.constraints + [Constraint(conflict.agent_2, conflict.place_1, conflict.time + 1)]
             b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data)
             if b.solution:
                 b.cost = b.solution.sum_of_individual_costs()
+                if b.cost == p.cost and len(b.solution.find_conflict(list_all=True)) < len(
+                        p.solution.find_conflict(list_all=True)):
+                    open_set.add(b)
+                    continue
                 open_set.add(b)
+            if a.solution:
+                open_set.add(a)
 
         elif isinstance(conflict, SlideConflict):
             a = Node()

@@ -14,7 +14,7 @@ def name_from_pixel(pixel):
     return str(list(pixel[:2]))
 
 def create_frame(maze, paths, t):
-    size = 3
+    size = 15
     im = ImageOps.invert(Image.fromarray(maze.grid * 255))
     im = im.resize((im.width * size, im.height * size),Image.NEAREST)
     im = im.convert('RGB')
