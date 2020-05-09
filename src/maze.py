@@ -7,7 +7,7 @@ from src.agentpool import AgentPool
 
 class Maze:
     def __init__(self, grid, agents):
-        self.grid = grid
+        self.grid = np.array(grid,dtype=np.uint8)
         self.width = len(grid[0])
         self.height = len(grid)
 
@@ -46,7 +46,42 @@ class Maze:
                     agents.get(name).goal = (x,y)
 
         return Maze(grid,agents)
-    
+
+    def reachable_from_pos(self,pos):
+        (x,y) = pos
+        out = []
+        if x>0:
+            if not self.grid[y][x-1]:
+                    out.append((x-1,y))
+        if x+1<self.width:
+            if not self.grid[y][x+1]:
+                    out.append((x+1,y))
+        if y>0:
+            if not self.grid[y-1][x]:
+                    out.append((x,y-1))
+        if y+1<self.height:
+            if not self.grid[y+1][x]:
+                    out.append((x,y+1))
+        return out
+
+    def reachable_from_posw(self,pos):
+        (x,y) = pos
+        out = []
+        if x>0:
+            if not self.grid[y][x-1]:
+                    out.append((x-1,y))
+        if x+1<self.width:
+            if not self.grid[y][x+1]:
+                    out.append((x+1,y))
+        if y>0:
+            if not self.grid[y-1][x]:
+                    out.append((x,y-1))
+        if y+1<self.height:
+            if not self.grid[y+1][x]:
+                    out.append((x,y+1))
+        out.append((x, y))
+        return out
+
     def reachable_from(self,pos, constraints=None):
         if not constraints:
             constraints = []
