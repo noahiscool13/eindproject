@@ -216,7 +216,7 @@ def astarwpcath(maze,agent, start, goal, waypoints, h, upper,data, constraints=N
     return None
 
 
-class Constraint:
+class PointConstraint:
     def __init__(self, agent, place, time):
         self.agent = agent
         self.place = place[0]
@@ -226,14 +226,35 @@ class Constraint:
             self.time = place[1]
 
     def __eq__(self, other):
-        if isinstance(other, Constraint):
+        if isinstance(other, PointConstraint):
             return self.agent == other.agent and self.place == other.place and self.time is other.time
         if isinstance(other, list) or isinstance(other, tuple):
+            if len(other)!=3:
+                return False
             return self.place[0] == other[0] and self.place[1] == other[1] and self.time == other[2]
         return False
 
     def __hash__(self):
         return hash(hash(self.agent.name)+hash(self.place)+hash(self.time))
+
+class EdgeConstraint:
+    def __init__(self, agent, place1,place2, time):
+        self.agent = agent
+        self.place1 = place1[0]
+        self.place2 = place2[0]
+        self.time = time
+
+    def __eq__(self, other):
+        if isinstance(other, EdgeConstraint):
+            return self.agent == other.agent and self.place1 == other.place1 and self.place2 == other.place2 and self.time is other.time
+        if isinstance(other, list) or isinstance(other, tuple):
+            if len(other)!=5:
+                return False
+            return self.place1[0] == other[0] and self.place1[1] == other[1] and self.place2[0] == other[2] and self.place2[1] == other[3] and self.time == other[4]
+        return False
+
+    def __hash__(self):
+        return hash(hash(self.agent.name)+hash(self.place1)+hash(self.place2)+hash(self.time))
 
 
 class SingleAgentCosntraints:
@@ -550,7 +571,7 @@ def CBS(maze,pc=True):
         p = min(open_set, key=lambda x: x.cost+x.h)
         open_set.remove(p)
         conflict = p.solution.find_conflict(list_all=True)
-        print(len(conflict),len(p.constraints))
+        print(p.cost,len(conflict),len(p.constraints))
         if pc:
             conflict = p.solution.find_worst_conflict(maze, heuristic_data, p.constraints)
         else:
@@ -563,7 +584,7 @@ def CBS(maze,pc=True):
             conflict = conflict[0]
         if isinstance(conflict, PointConflict):
             a = Node()
-            a.constraints = p.constraints + [Constraint(conflict.agent_1, conflict.place, conflict.time)]
+            a.constraints = p.constraints + [PointConstraint(conflict.agent_1, conflict.place, conflict.time)]
             a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data)
             if a.solution:
                 a.cost = a.solution.sum_of_individual_costs()
@@ -573,7 +594,7 @@ def CBS(maze,pc=True):
                     continue
 
             b = Node()
-            b.constraints = p.constraints + [Constraint(conflict.agent_2, conflict.place, conflict.time)]
+            b.constraints = p.constraints + [PointConstraint(conflict.agent_2, conflict.place, conflict.time)]
             b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data)
             if b.solution:
                 b.cost = b.solution.sum_of_individual_costs()
@@ -587,7 +608,7 @@ def CBS(maze,pc=True):
 
         elif isinstance(conflict, EdgeConflict):
             a = Node()
-            a.constraints = p.constraints + [Constraint(conflict.agent_1, conflict.place_2, conflict.time + 1)]
+            a.constraints = p.constraints + [EdgeConstraint(conflict.agent_1,conflict.place_1, conflict.place_2, conflict.time + 1)]
             a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data)
             if a.solution:
                 a.cost = a.solution.sum_of_individual_costs()
@@ -597,7 +618,7 @@ def CBS(maze,pc=True):
                     continue
 
             b = Node()
-            b.constraints = p.constraints + [Constraint(conflict.agent_2, conflict.place_1, conflict.time + 1)]
+            b.constraints = p.constraints + [EdgeConstraint(conflict.agent_2,conflict.place_2, conflict.place_1, conflict.time + 1)]
             b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data)
             if b.solution:
                 b.cost = b.solution.sum_of_individual_costs()
@@ -611,14 +632,14 @@ def CBS(maze,pc=True):
 
         elif isinstance(conflict, SlideConflict):
             a = Node()
-            a.constraints = p.constraints + [Constraint(conflict.agent_1, conflict.place, conflict.time + 1)]
+            a.constraints = p.constraints + [PointConstraint(conflict.agent_1, conflict.place, conflict.time + 1)]
             a.solution = solve(maze, a.constraints,p)
             if a.solution:
                 a.cost = a.solution.sum_of_individual_costs()
                 open_set.add(a)
 
             b = Node()
-            b.constraints = p.constraints + [Constraint(conflict.agent_2, conflict.place, conflict.time)]
+            b.constraints = p.constraints + [PointConstraint(conflict.agent_2, conflict.place, conflict.time)]
             b.solution = solve(maze, b.constraints,p)
             if b.solution:
                 b.cost = b.solution.sum_of_individual_costs()

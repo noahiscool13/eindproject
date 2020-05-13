@@ -84,7 +84,7 @@ class MDD:
 
 
 if __name__ == '__main__':
-    from src.CBS import flood_dists, Constraint
+    from src.CBS import flood_dists, PointConstraint
 
     maze = Maze.from_image("test_maze_26.png")
 
