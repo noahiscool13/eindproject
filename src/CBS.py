@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from math import inf, atan, pi
 
+from src.GD import GD
 from src.MDD import MDD
 from src.agent import Agent
 
@@ -286,13 +287,15 @@ class SlideConflict:
 
 
 class Node:
-    def __init__(self, constraints=None, solution=None, cost=None):
+    def __init__(self, constraints=None, solution=None, cost=None,h=0,agents=[]):
         if constraints:
             self.constraints = constraints
         else:
             self.constraints = []
         self.solution = solution
         self.cost = cost
+        self.h = h
+        self.cg = GD(agents)
 
     def print_solution(self):
         print(self.solution)
@@ -358,12 +361,10 @@ class Solution:
         for p in self.paths:
             a = p.agent
             l = len(p)
-            if (a.start,frozenset(a.waypoints),a.goal,l) in mem:
-                md[a.name] = mem[(a.start,frozenset(a.waypoints),a.goal,frozenset(const),l)]
-            else:
-                t = MDD.construct(maze,a.start,a.waypoints,a.goal,l,data,const).g
-                md[a.name] = t
-                mem[(a.start,frozenset(a.waypoints),a.goal,frozenset(const),l)] = t
+
+            t = MDD.construct(maze,a.start,a.waypoints,a.goal,l,data,const).g
+            md[a.name] = t
+
         semi_cardinal = None
         for c in confs:
             s = 0
@@ -478,6 +479,31 @@ def flood_dists(maze, pos):
     return dists
 
 
+def build_cg(maze, heuristic_data, solution, constraints,mem=dict()):
+    confs = solution.find_conflict(list_all=True)
+    if not confs:
+        return set()
+
+    edg = set()
+
+    md = dict()
+    for p1 in solution.paths:
+        for p2 in solution.paths:
+            if p1!=p2:
+
+                a1 = p1.agent
+                a2 = p2.agent
+                l1 = len(p1)
+                t1 = MDD.construct(maze, a1.start, a1.waypoints, a1.goal, l1, heuristic_data, constraints)
+                l2 = len(p2)
+                t2 = MDD.construct(maze, a2.start, a2.waypoints, a2.goal, l2, heuristic_data, constraints)
+                c = MDD.merge(t1,t2)
+                if c:
+                    edg.add((p1.agent,p2.agent))
+
+    return edg
+
+
 
 def CBS(maze,pc=True):
     dist_data = dict()
@@ -512,15 +538,19 @@ def CBS(maze,pc=True):
 
     # print("go")
 
-    r = Node()
+    r = Node(agents=list(maze.agents))
     r.solution = solve(maze, r.constraints,data=heuristic_data)
     r.cost = r.solution.sum_of_individual_costs()
+    # return r.solution
+
+    # r.cg.edges = build_cg(maze,heuristic_data,r.solution,r.constraints)
+
     open_set = {r}
     while open_set:
-        p = min(open_set, key=lambda x: x.cost)
+        p = min(open_set, key=lambda x: x.cost+x.h)
         open_set.remove(p)
-        # conflict = p.solution.find_conflict(list_all=True)
-        # print(len(conflict),len(p.constraints))
+        conflict = p.solution.find_conflict(list_all=True)
+        print(len(conflict),len(p.constraints))
         if pc:
             conflict = p.solution.find_worst_conflict(maze, heuristic_data, p.constraints)
         else:

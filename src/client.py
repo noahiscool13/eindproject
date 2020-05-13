@@ -3,10 +3,10 @@ from mapfw import MapfwBenchmarker
 from src.CBS import CBS
 from src.agent import Agent
 from src.maze import Maze
-for b in range(1,18):
-    if b in [8,9]:
+for b in [1]:
+    if b in [10]:
         continue
-    benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",b, "CBS", "PC-naive", False)
+    benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",b, "CBS", "TEST", True)
     for problem in benchmarker:
         n_agents = len(problem.starts)
         agents = [Agent(f"[{x * 347 % 256},{x * 9231 % 256}]", tuple(problem.starts[x]), tuple(problem.starts[x]),

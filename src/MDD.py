@@ -11,8 +11,13 @@ class MDD:
         return len(self.g)
 
     @staticmethod
-    def construct(maze, start, waypoints, goal, d, data, constraints=[]):
+    def construct(maze, start, waypoints, goal, d, data, constraints=[],mem=dict()):
         from src.CBS import perfect_heuristic
+
+        if (start,frozenset(waypoints),goal,d) in mem:
+            return mem[(start,frozenset(waypoints),goal,d)]
+
+
         g = [{(start, frozenset(waypoints))}]
         per = [set()]
         child = [defaultdict(set)]
@@ -42,7 +47,11 @@ class MDD:
 
 
         g = t[::-1]
-        return MDD(g,tc[::-1])
+
+        ans = MDD(g,tc[::-1])
+
+        mem[(start,frozenset(waypoints),goal,d)] = ans
+        return ans
 
     @staticmethod
     def merge(a, b):
