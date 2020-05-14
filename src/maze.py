@@ -3,6 +3,7 @@ from PIL import Image
 
 from src.agent import Agent
 from src.agentpool import AgentPool
+from src.cmap import find_cor
 
 
 class Maze:
@@ -132,6 +133,76 @@ class Maze:
                     out.append(((x,y+1),t,waypoints-{(x,y+1)}))
         if (x, y, t) not in constraints:
             out.append(((x, y),t,waypoints))
+        return out
+
+    def reachable_from_with_waypoints_cor(self,pos, constraints=None,cors=[],corcon=[]):
+        if not constraints:
+            constraints = []
+        (x,y),t,waypoints,cor = pos
+        t+=1
+        out = []
+        if x>0:
+            if not self.grid[y][x-1]:
+                if (x-1,y,t) not in constraints and (x,y,x-1,y,t) not in constraints:
+                    if not cor:
+                        q = find_cor(cors,(x-1,y))
+                        if q:
+                            out.append(((x-1,y),t,waypoints-{(x-1,y)},q))
+                        else:
+                            out.append(((x - 1, y), t, waypoints - {(x - 1, y)}, False))
+                    else:
+                        if not (x-1,y) in cor[0]:
+                            if (x, y, t) not in corcon:
+                                out.append(((x - 1, y), t, waypoints - {(x - 1, y)}, False))
+                        else:
+                            out.append(((x - 1, y), t, waypoints - {(x - 1, y)}, cor))
+        if x+1<self.width:
+            if not self.grid[y][x+1]:
+                if (x+1,y,t) not in constraints and (x,y,x+1,y,t) not in constraints:
+                    if not cor:
+                        q = find_cor(cors, (x + 1, y))
+                        if q:
+                            out.append(((x + 1, y), t, waypoints - {(x + 1, y)}, q))
+                        else:
+                            out.append(((x + 1, y), t, waypoints - {(x + 1, y)}, False))
+                    else:
+                        if not (x + 1, y) in cor[0]:
+                            if (x, y, t) not in corcon:
+                                out.append(((x + 1, y), t, waypoints - {(x + 1, y)}, False))
+                        else:
+                            out.append(((x + 1, y), t, waypoints - {(x + 1, y)}, cor))
+        if y>0:
+            if not self.grid[y-1][x]:
+                if (x,y-1,t) not in constraints and (x,y,x,y-1,t) not in constraints:
+                    if not cor:
+                        q = find_cor(cors, (x,y-1))
+                        if q:
+                            out.append(((x,y-1), t, waypoints - {(x,y-1)}, q))
+                        else:
+                            out.append(((x,y-1), t, waypoints - {(x,y-1)}, False))
+                    else:
+                        if not (x,y-1) in cor[0]:
+                            if (x, y, t) not in corcon:
+                                out.append(((x,y-1), t, waypoints - {(x,y-1)}, False))
+                        else:
+                            out.append(((x,y-1), t, waypoints - {(x,y-1)}, cor))
+        if y+1<self.height:
+            if not self.grid[y+1][x]:
+                if (x,y+1,t) not in constraints and (x,y,x,y+1,t) not in constraints:
+                    if not cor:
+                        q = find_cor(cors, (x,y+1))
+                        if q:
+                            out.append(((x,y+1), t, waypoints - {(x,y+1)}, q))
+                        else:
+                            out.append(((x,y+1), t, waypoints - {(x,y+1)}, False))
+                    else:
+                        if not (x,y+1) in cor[0]:
+                            if (x, y, t) not in corcon:
+                                out.append(((x,y+1), t, waypoints - {(x,y+1)}, False))
+                        else:
+                            out.append(((x,y+1), t, waypoints - {(x,y+1)}, cor))
+        if (x, y, t) not in constraints:
+            out.append(((x, y),t,waypoints,cor))
         return out
 
     def reachable_from_with_cat(self,pos, constraints=None):

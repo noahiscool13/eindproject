@@ -9,6 +9,7 @@ from src.agent import Agent
 
 from itertools import chain, combinations, permutations
 
+from src.cmap import find_corridor_locs, merge, find_cor, find_cor_wide
 from src.tsp import tdp
 
 
@@ -168,7 +169,9 @@ def astarwpcat(maze,agent, start, goal, waypoints, h, upper, constraints=None):
     return None
 
 
-from heapq import *
+from heapq import heappop, heappush
+
+
 def astarwpcath(maze,agent, start, goal, waypoints, h, upper,data, constraints=None):
     if (start[0], start[1], 0) in constraints:
         return None
@@ -195,6 +198,52 @@ def astarwpcath(maze,agent, start, goal, waypoints, h, upper,data, constraints=N
         # open_set.remove(current)
         close_set.add(current)
         for neighbor in maze.reachable_from_with_waypoints(current, constraints=constraints):
+            cat_hit = 0
+            for path in upper.solution:
+                if agent == path.agent:
+                    continue
+                if path[fast_min(neighbor[1], len(path) - 1)][0] == neighbor[0]:
+                    cat_hit += 0.001
+                    break
+            tentative_gscore = gscore[current] + 1 + cat_hit
+            if neighbor in close_set and tentative_gscore>gscore[neighbor]:
+                continue
+            if tentative_gscore < gscore[neighbor]:
+                came_from[neighbor] = current
+                gscore[neighbor] = tentative_gscore
+                fscore[neighbor] = tentative_gscore + h(neighbor, goal, neighbor[2],data)*1.0000001
+                # open_set.add(neighbor)
+                heappush(open_set, (fscore[neighbor], neighbor))
+
+    # print("NO PATH FOUND!!")
+    return None
+
+def astarwpcathc(maze,agent, start, goal, waypoints, h, upper,data, constraints=None,corrs=[],corcon=[]):
+    if (start[0], start[1], 0) in constraints:
+        return None
+
+    start_state = (start, 0, frozenset(waypoints),False)
+
+    came_from = dict()
+    gscore = defaultdict(constant_factory(inf))
+    gscore[start_state] = 0
+    fscore = defaultdict(constant_factory(inf))
+    fscore[start_state] = h(start_state, goal, waypoints,data)
+
+    open_set = []
+    heappush(open_set, (fscore[start_state], start_state))
+    close_set = set()
+
+    while open_set:
+        current = heappop(open_set)[1]
+        # current = min_test(open_set, key=lambda x: fscore[x])
+        if current[0] == goal and not current[2]:
+            if not constraints or current[1] >= max(constraints, key=lambda x: x.time).time:
+                return reconstruct_path(came_from, current)
+
+        # open_set.remove(current)
+        close_set.add(current)
+        for neighbor in maze.reachable_from_with_waypoints_cor(current, constraints=constraints,cors=corrs,corcon=corcon):
             cat_hit = 0
             for path in upper.solution:
                 if agent == path.agent:
@@ -256,6 +305,19 @@ class EdgeConstraint:
     def __hash__(self):
         return hash(hash(self.agent.name)+hash(self.place1)+hash(self.place2)+hash(self.time))
 
+class CorrConstraint:
+    def __init__(self, agent, corr,loc, time_s,time_e,exit):
+        self.agent = agent
+        self.corr = corr
+        self.loc = loc
+        self.time_s = time_s
+        self.time_e = time_e
+        self.exit = exit
+
+    def __eq__(self, other):
+        if isinstance(other, list) or isinstance(other, tuple):
+            return self.exit[0] == other[0] and self.exit[1] == other[1] and self.time_s<other[2]<=self.time_e
+        return False
 
 class SingleAgentCosntraints:
     def __init__(self, constraints):
@@ -298,6 +360,24 @@ class EdgeConflict:
         self.place_2 = place_2
         self.time = time
 
+class CorrConflict:
+    def __init__(self, agent_1, agent_2, place, time,corr, order):
+        self.agent_1 = agent_1
+        self.agent_2 = agent_2
+        self.place = place
+        self.time = time
+        self.corr = corr
+        self.order = order
+
+class CorrConflictE:
+    def __init__(self, agent_1, agent_2, place1,place2, time,corr, order):
+        self.agent_1 = agent_1
+        self.agent_2 = agent_2
+        self.place_1 = place1
+        self.place_2 = place2
+        self.time = time
+        self.corr = corr
+        self.order = order
 
 class SlideConflict:
     def __init__(self, agent_1, agent_2, place, time):
@@ -308,11 +388,15 @@ class SlideConflict:
 
 
 class Node:
-    def __init__(self, constraints=None, solution=None, cost=None,h=0,agents=[]):
+    def __init__(self, constraints=None, solution=None, cost=None,h=0,agents=[],corcons=None):
         if constraints:
             self.constraints = constraints
         else:
             self.constraints = []
+        if corcons:
+            self.corcons = corcons
+        else:
+            self.corcons = []
         self.solution = solution
         self.cost = cost
         self.h = h
@@ -407,7 +491,7 @@ class Solution:
             return (semi_cardinal,1)
         return (confs[0],0)
 
-    def find_conflict(self, slide=False,list_all=False):
+    def find_conflict(self, slide=False,list_all=False, cors=[]):
         longest_path_length = self.max_of_individual_costs()
         lst = []
         for t in range(longest_path_length):
@@ -416,7 +500,13 @@ class Solution:
                     # if len(self.paths[a1]) > t and len(self.paths[a2]) > t:
                     if self.paths[a1][min(t, len(self.paths[a1]) - 1)][0] == \
                             self.paths[a2][min(t, len(self.paths[a2]) - 1)][0]:
-                        conf = PointConflict(self.paths[a1].agent, self.paths[a2].agent,
+                        q = find_cor_wide(cors, self.paths[a1][min(t, len(self.paths[a1]) - 1)][0])
+                        # q = 0
+                        if q:
+                            conf = CorrConflict(self.paths[a1].agent, self.paths[a2].agent,
+                                             self.paths[a1][min(t, len(self.paths[a1]) - 1)], t,q,q.div(self.paths[a1][min(t-1, len(self.paths[a1]) - 1)],self.paths[a2][min(t-1, len(self.paths[a2]) - 1)]))
+                        else:
+                            conf = PointConflict(self.paths[a1].agent, self.paths[a2].agent,
                                              self.paths[a1][min(t, len(self.paths[a1]) - 1)], t)
                         if list_all:
                             lst.append(conf)
@@ -425,7 +515,16 @@ class Solution:
                     if len(self.paths[a1]) > t + 1 and len(self.paths[a2]) > t + 1:
                         if self.paths[a1][t][0] == self.paths[a2][t + 1][0] and self.paths[a1][t + 1][0] == \
                                 self.paths[a2][t][0]:
-                            conf = EdgeConflict(self.paths[a1].agent, self.paths[a2].agent, self.paths[a1][t],
+                            q = find_cor_wide(cors, self.paths[a1][t][0])
+
+                            # q = 0
+                            if q and self.paths[a2][t][0] in q:
+                                conf = CorrConflictE(self.paths[a1].agent, self.paths[a2].agent,
+                                                     self.paths[a1][t],
+                                                     self.paths[a2][t], t, q,
+                                                    q.div(self.paths[a1][t-1],self.paths[a2][t-1]))
+                            else:
+                                conf = EdgeConflict(self.paths[a1].agent, self.paths[a2].agent, self.paths[a1][t],
                                                 self.paths[a2][t], t)
                             if list_all:
                                 lst.append(conf)
@@ -454,7 +553,7 @@ class Solution:
         return "<Solution:\n" + "\n".join(str(path) for path in self.paths)
 
 
-def solve(maze, constraints, upper=None,data=None):
+def solve(maze, constraints, upper=None,data=None,cors=[]):
     if not upper:
         upper = Node()
         upper.solution = Solution([])
@@ -464,21 +563,25 @@ def solve(maze, constraints, upper=None,data=None):
         #                 SingleAgentCosntraints.from_constraints(agent, constraints))
         # a_path = astarwpcat(maze, agent, agent.start, agent.goal, agent.waypoints, waypointheuristic,upper,
         #                  SingleAgentCosntraints.from_constraints(agent, constraints))
-        a_path = astarwpcath(maze, agent, agent.start, agent.goal, agent.waypoints, perfect_heuristic, upper,data,
-                            SingleAgentCosntraints.from_constraints(agent, constraints))
+        # a_path = astarwpcath(maze, agent, agent.start, agent.goal, agent.waypoints, perfect_heuristic, upper,data,
+        #                     SingleAgentCosntraints.from_constraints(agent, constraints))
+        a_path = astarwpcathc(maze, agent, agent.start, agent.goal, agent.waypoints, perfect_heuristic, upper, data,
+                              SingleAgentCosntraints.from_constraints(agent, constraints), cors)
         if a_path is None:
             # print("No Path with constraints")
             return None
         paths.append(Path(agent, a_path))
     return Solution(paths)
 
-def replan(maze, constraints, agent, upper,data=None):
+def replan(maze, constraints, agent, upper,data=None,cors=[],corcon=[]):
     # a_path = astarwpcat(maze, agent, agent.start, agent.goal, agent.waypoints, waypointheuristic,upper,
     #                  SingleAgentCosntraints.from_constraints(agent, constraints))
     # a_path = astarwp(maze, agent.start, agent.goal, agent.waypoints, waypointheuristic,
     #                     SingleAgentCosntraints.from_constraints(agent, constraints))
-    a_path = astarwpcath(maze, agent, agent.start, agent.goal, agent.waypoints, perfect_heuristic, upper, data,
-                         SingleAgentCosntraints.from_constraints(agent, constraints))
+    # a_path = astarwpcath(maze, agent, agent.start, agent.goal, agent.waypoints, perfect_heuristic, upper, data,
+    #                      SingleAgentCosntraints.from_constraints(agent, constraints))
+    a_path = astarwpcathc(maze, agent, agent.start, agent.goal, agent.waypoints, perfect_heuristic, upper, data,
+                         SingleAgentCosntraints.from_constraints(agent, constraints),cors,[constraint for constraint in corcon if constraint.agent == agent])
     if a_path is None:
         # print("No Path with constraints")
         return None
@@ -527,6 +630,10 @@ def build_cg(maze, heuristic_data, solution, constraints,mem=dict()):
 
 
 def CBS(maze,pc=True):
+    p = find_corridor_locs(maze)
+
+    cors = merge(p)
+
     dist_data = dict()
     for agent in maze.agents:
         dist_data[agent.goal] = flood_dists(maze,agent.goal)
@@ -560,22 +667,24 @@ def CBS(maze,pc=True):
     # print("go")
 
     r = Node(agents=list(maze.agents))
-    r.solution = solve(maze, r.constraints,data=heuristic_data)
+    r.solution = solve(maze, r.constraints,data=heuristic_data,cors=cors)
     r.cost = r.solution.sum_of_individual_costs()
     # return r.solution
 
     # r.cg.edges = build_cg(maze,heuristic_data,r.solution,r.constraints)
 
     open_set = {r}
+    c = 0
     while open_set:
+        c+=1
         p = min(open_set, key=lambda x: x.cost+x.h)
         open_set.remove(p)
         conflict = p.solution.find_conflict(list_all=True)
-        print(p.cost,len(conflict),len(p.constraints))
+        print(p.cost,len(conflict),len(p.constraints),len(p.corcons))
         if pc:
             conflict = p.solution.find_worst_conflict(maze, heuristic_data, p.constraints)
         else:
-            conflict = p.solution.find_conflict()
+            conflict = p.solution.find_conflict(cors=cors)
 
         if conflict is None:
             # print(p.cost)
@@ -585,7 +694,8 @@ def CBS(maze,pc=True):
         if isinstance(conflict, PointConflict):
             a = Node()
             a.constraints = p.constraints + [PointConstraint(conflict.agent_1, conflict.place, conflict.time)]
-            a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data)
+            a.corcons = p.corcons
+            a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data,cors=cors,corcon=a.corcons)
             if a.solution:
                 a.cost = a.solution.sum_of_individual_costs()
                 if a.cost == p.cost and len(a.solution.find_conflict(list_all=True)) < len(
@@ -595,7 +705,8 @@ def CBS(maze,pc=True):
 
             b = Node()
             b.constraints = p.constraints + [PointConstraint(conflict.agent_2, conflict.place, conflict.time)]
-            b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data)
+            b.corcons = p.corcons
+            b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data,cors=cors,corcon=b.corcons)
             if b.solution:
                 b.cost = b.solution.sum_of_individual_costs()
                 if b.cost == p.cost and len(b.solution.find_conflict(list_all=True)) < len(
@@ -606,10 +717,47 @@ def CBS(maze,pc=True):
             if a.solution:
                 open_set.add(a)
 
-        elif isinstance(conflict, EdgeConflict):
+
+
+
+
+
+        if isinstance(conflict, CorrConflict):
+            a = Node()
+            a.constraints = p.constraints + [PointConstraint(conflict.agent_1, conflict.place, conflict.time)]
+            a.corcons = p.corcons + [CorrConstraint(conflict.agent_1,conflict.corr,conflict.place,conflict.time,conflict.time+conflict.corr.delta(conflict.place)+len(conflict.corr)+2,conflict.order[1])]
+            a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data,cors=cors,corcon=a.corcons)
+            if a.solution:
+                a.cost = a.solution.sum_of_individual_costs()
+                if a.cost == p.cost and len(a.solution.find_conflict(list_all=True)) < len(
+                        p.solution.find_conflict(list_all=True)):
+                    open_set.add(a)
+                    continue
+
+            b = Node()
+            b.constraints = p.constraints + [PointConstraint(conflict.agent_2, conflict.place, conflict.time)]
+            b.corcons = p.corcons + [CorrConstraint(conflict.agent_2, conflict.corr,conflict.place, conflict.time,
+                                                    conflict.time + conflict.corr.delta(conflict.place)+len(conflict.corr)+2,conflict.order[0])]
+            b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data,cors=cors,corcon=b.corcons)
+            if b.solution:
+                b.cost = b.solution.sum_of_individual_costs()
+                if b.cost == p.cost and len(b.solution.find_conflict(list_all=True)) < len(
+                        p.solution.find_conflict(list_all=True)):
+                    open_set.add(b)
+                    continue
+                open_set.add(b)
+            if a.solution:
+                open_set.add(a)
+
+
+
+
+
+        if isinstance(conflict, CorrConflictE):
             a = Node()
             a.constraints = p.constraints + [EdgeConstraint(conflict.agent_1,conflict.place_1, conflict.place_2, conflict.time + 1)]
-            a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data)
+            a.corcons = p.corcons + [CorrConstraint(conflict.agent_1,conflict.corr,conflict.place_1,conflict.time,conflict.time+conflict.corr.delta(conflict.place_1)+len(conflict.corr)+3,conflict.order[1])]
+            a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data,cors=cors,corcon=a.corcons)
             if a.solution:
                 a.cost = a.solution.sum_of_individual_costs()
                 if a.cost == p.cost and len(a.solution.find_conflict(list_all=True)) < len(
@@ -619,7 +767,38 @@ def CBS(maze,pc=True):
 
             b = Node()
             b.constraints = p.constraints + [EdgeConstraint(conflict.agent_2,conflict.place_2, conflict.place_1, conflict.time + 1)]
-            b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data)
+            b.corcons = p.corcons + [CorrConstraint(conflict.agent_2, conflict.corr,conflict.place_2, conflict.time,
+                                                    conflict.time + conflict.corr.delta(conflict.place_2)+len(conflict.corr)+3,conflict.order[0])]
+            b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data,cors=cors,corcon=b.corcons)
+            if b.solution:
+                b.cost = b.solution.sum_of_individual_costs()
+                if b.cost == p.cost and len(b.solution.find_conflict(list_all=True)) < len(
+                        p.solution.find_conflict(list_all=True)):
+                    open_set.add(b)
+                    continue
+                open_set.add(b)
+            if a.solution:
+                open_set.add(a)
+
+
+
+
+        elif isinstance(conflict, EdgeConflict):
+            a = Node()
+            a.constraints = p.constraints + [EdgeConstraint(conflict.agent_1,conflict.place_1, conflict.place_2, conflict.time + 1)]
+            a.corcons = p.corcons
+            a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data,cors=cors,corcon=a.corcons)
+            if a.solution:
+                a.cost = a.solution.sum_of_individual_costs()
+                if a.cost == p.cost and len(a.solution.find_conflict(list_all=True)) < len(
+                        p.solution.find_conflict(list_all=True)):
+                    open_set.add(a)
+                    continue
+
+            b = Node()
+            b.constraints = p.constraints + [EdgeConstraint(conflict.agent_2,conflict.place_2, conflict.place_1, conflict.time + 1)]
+            b.corcons = p.corcons
+            b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data,cors=cors,corcon=b.corcons)
             if b.solution:
                 b.cost = b.solution.sum_of_individual_costs()
                 if b.cost == p.cost and len(b.solution.find_conflict(list_all=True)) < len(

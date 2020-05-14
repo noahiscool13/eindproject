@@ -3,11 +3,11 @@ from mapfw import MapfwBenchmarker
 from src.CBS import CBS
 from src.agent import Agent
 from src.maze import Maze
-# for b in range(17,18):
-for b in [9]:
-    # if b in [8,9]:
-    #     continue
-    benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",b, "CBS", "betterConflicts", False)
+for b in range(1,19):
+# for b in [8]:
+    if b in [8]:
+        continue
+    benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",b, "CBS", "CorrConf", True)
     for problem in benchmarker:
         # print(problem)
         n_agents = len(problem.starts)
@@ -16,7 +16,7 @@ for b in [9]:
                   range(n_agents)]
         maze = Maze(problem.grid, agents)
 
-        paths = CBS(maze)
+        paths = CBS(maze,False)
         print([[y[0] for y in x.path] for x in paths])
         problem.add_solution([[y[0] for y in x.path] for x in paths])
 
