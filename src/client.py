@@ -7,7 +7,7 @@ for b in range(1,19):
 # for b in [8]:
     if b in [8]:
         continue
-    benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",b, "CBS", "CorrConf", True)
+    benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",b, "CBS", "CorrConf", False)
     for problem in benchmarker:
         # print(problem)
         n_agents = len(problem.starts)

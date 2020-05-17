@@ -449,7 +449,7 @@ class Solution:
                     return
 
     def dup(self):
-        return Solution([path.dup() for path in self.paths])
+        return Solution([path for path in self.paths])
 
 
     def sum_of_individual_costs(self):

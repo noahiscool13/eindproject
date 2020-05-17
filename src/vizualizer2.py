@@ -76,7 +76,7 @@ def create_gif(file, maze, paths, speed):
     shuffle(all_wp)
 
 
-    im = [create_frame(maze, paths, t,bg,man,wp,house,all_wp) for t in stepped_range(paths.max_of_individual_costs(),4)]
+    im = [create_frame(maze, paths, t,bg,man,wp,house,all_wp) for t in stepped_range(paths.max_of_individual_costs(),8)]
     for x in range(len(im)):
         im[x] = im[x]
     im[0].save(file, save_all=True, append_images=im[1:], duration=speed, loop=0)
