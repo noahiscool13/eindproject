@@ -27,6 +27,9 @@ class Agent:
         txt += ">"
         return txt
 
+    def __hash__(self):
+        return hash(self.name)
+
     def __eq__(self, other):
         if not isinstance(other,Agent):
             return False

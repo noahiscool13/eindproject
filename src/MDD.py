@@ -3,9 +3,10 @@ from collections import defaultdict
 from src.maze import Maze
 
 class MDD:
-    def __init__(self, g,child):
+    def __init__(self, g,child,per):
         self.g = g
         self.c = child
+        self.p = per
 
     def __len__(self):
         return len(self.g)
@@ -19,7 +20,7 @@ class MDD:
 
 
         g = [{(start, frozenset(waypoints))}]
-        per = [set()]
+        per = [defaultdict(set)]
         child = [defaultdict(set)]
         for i in range(1, d):
             g.append(set())
@@ -36,33 +37,42 @@ class MDD:
 
         t = [[goal]]
         tc = []
+        tp = []
         for i in range(d - 1):
             t.append(set())
             tc.append(dict())
+            tp.append(dict())
 
             for a in t[-2]:
                 t[-1] |= per[-i - 1][a]
             for x in t[-1]:
                 tc[-1][x]=child[-i - 2][x]
 
+            for x in t[-2]:
+                pers = per[-i - 1][x]
+                tp[-1][x]={p for p in pers if p in t[-1]}
+
 
         g = t[::-1]
 
-        ans = MDD(g,tc[::-1])
+        ans = MDD(g,tc[::-1],tp[-1::-1])
 
         mem[(start,frozenset(waypoints),goal,d)] = ans
         return ans
 
     @staticmethod
-    def merge(a, b):
+    def merge(a, b, trueres=False):
         while len(a) < len(b):
             a.g.append(a.g[-1])
             a.c.append({a.g[-1][0]:set((a.g[-1]))})
+            a.p.append({a.g[-1][0]: set((a.g[-1]))})
         while len(a) > len(b):
             b.g.append(b.g[-1])
-            b.c.append({b.g[-1]: b.g[-1]})
+            b.c.append({b.g[-1][0]:set((b.g[-1]))})
+            b.p.append({b.g[-1][0]: set((b.g[-1]))})
 
         ng = [set()]
+        per = [defaultdict(set)]
         for x in a.g[0]:
             for y in b.g[0]:
                 if x!=y:
@@ -73,11 +83,27 @@ class MDD:
             for x in ng[-2]:
                 for lc in a.c[i][x[0]]:
                     for rc in b.c[i][x[1]]:
-                        if lc!=rc:
+                        lo = x[0]
+                        ro = x[1]
+                        # ltp = {w for w in lp if w in lo}
+                        # rtp = {w for w in rp if w in ro}
+                        if lc!=rc and (not (lo==rc and ro==lc)):
                             ng[-1].add((lc,rc))
+                            per[-1][(lc,rc)] = x
+            per.append(defaultdict(set))
+
+
+        if trueres:
+            return MDD(ng,None,per[:-1])
 
         a = 1-bool(ng[-1])
         return a
+
+    def __bool__(self):
+        return bool(self.g[-1])
+
+    def __str__(self):
+        return str(self.g)
 
 
 

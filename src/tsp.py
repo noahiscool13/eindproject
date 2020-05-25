@@ -14,7 +14,7 @@ def tdp(start, waypoints, goal, data):
     """
     if (start,waypoints,goal) in data["wp"]:
         return data["wp"][(start,waypoints,goal)]
-    # print(len(waypoints))
+    print(len(waypoints))
     memo = {((start,),start):0}
     # for p in waypoints:
     #     memo[] = dists["direct"][p][start]

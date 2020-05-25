@@ -16,5 +16,8 @@ class AgentPool:
         for agent in self.agents.values():
             yield agent
 
+    def __getitem__(self, item):
+        return list(self.agents.values())[item]
+
     def print_names(self):
         print(list(self.agents.keys()))

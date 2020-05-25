@@ -1,10 +1,11 @@
 from mapfw import MapfwBenchmarker, get_all_benchmarks
 
 from src.CBS import CBS
+from src.ICTS import ICTS
 from src.agent import Agent
 from src.maze import Maze
 
-benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",(61), "CBS", "fastTsp", False)
+benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",(3), "ICTS", "WOEP WOEP", False)
 # benchmarker = MapfwBenchmarker("b76d216Ac99EbA4E",(2,), "CBS", "WDG_wip", False)
 
 for problem in benchmarker:
@@ -15,9 +16,9 @@ for problem in benchmarker:
               range(n_agents)]
     maze = Maze(problem.grid, agents)
 
-    paths = CBS(maze,False)
-    print([[y[0] for y in x.path] for x in paths])
-    problem.add_solution([[y[0] for y in x.path] for x in paths])
+    paths = ICTS(maze)
+    print(paths)
+    problem.add_solution(paths)
 
 
 

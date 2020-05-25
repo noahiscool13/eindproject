@@ -10,7 +10,8 @@ from src.agent import Agent
 from itertools import chain, combinations, permutations
 
 from src.cmap import find_corridor_locs, merge, find_cor, find_cor_wide
-from src.tsp import tdp
+# from src.branchandboundTSP2 import tdp
+from src.tsp2 import tdp
 
 
 def fast_min(a,b):
@@ -61,8 +62,10 @@ def perfect_heuristic(pos, goal, waypoints, data):
     best = inf
     for p in waypoints:
         d = data["direct"][p][sp]
-        d+= tdp(p,frozenset(waypoints),goal,data)
+        ans_t = tdp(p,frozenset(waypoints),goal,data)
+        d+= ans_t
         best = fast_min(best,d)
+    # print(best)
     return best
 
 def manhatan(pos, goal):
@@ -314,6 +317,9 @@ class CorrConstraint:
         self.time_e = time_e
         self.exit = exit
 
+    def __hash__(self):
+        return hash(hash(self.agent)+hash(self.corr)+hash(self.loc)+hash(self.time_s)+hash(self.time_e)+hash(self.exit))
+
     def __eq__(self, other):
         if isinstance(other, list) or isinstance(other, tuple):
             return self.exit[0] == other[0] and self.exit[1] == other[1] and self.time_s<other[2]<=self.time_e
@@ -404,6 +410,12 @@ class Node:
 
     def print_solution(self):
         print(self.solution)
+
+    def __hash__(self):
+        return hash(hash(frozenset(self.constraints))+hash(frozenset(self.corcons)))
+
+    def __eq__(self, other):
+        return self.constraints == other.constraints and self.corcons == other.corcons
 
 
 class Path:
@@ -629,44 +641,28 @@ def build_cg(maze, heuristic_data, solution, constraints,mem=dict()):
 
 
 
-def CBS(maze,pc=True):
-    p = find_corridor_locs(maze)
+def CBS(maze,pc=True,heuristic_data=None,cors=None,rec=False,constraints=None):
+    if not cors:
+        p = find_corridor_locs(maze)
 
-    cors = merge(p)
+        cors = merge(p)
 
-    dist_data = dict()
-    for agent in maze.agents:
-        dist_data[agent.goal] = flood_dists(maze,agent.goal)
-        for waypoint in agent.waypoints:
-            dist_data[waypoint] = flood_dists(maze,waypoint)
+    if not heuristic_data:
+        dist_data = dict()
+        for agent in maze.agents:
+            dist_data[agent.goal] = flood_dists(maze,agent.goal)
+            for waypoint in agent.waypoints:
+                dist_data[waypoint] = flood_dists(maze,waypoint)
 
-    # print("p1")
+        # print("p1")
 
-    compl_dists = dict()
-    # for agent in maze.agents:
-    #     open_waypoints = powerset(agent.waypoints)
-    #     for waypoint_combi in open_waypoints:
-    #         print(waypoint_combi)
-    #         if not waypoint_combi:
-    #             continue
-    #         for start_point in waypoint_combi:
-    #             rest = (point for point in waypoint_combi if point != start_point)
-    #             best = inf
-    #             for perm in permutations(rest):
-    #                 d = 0
-    #                 cp = start_point
-    #                 for tp in perm:
-    #                     d+=dist_data[tp][cp]
-    #                     cp = tp
-    #                 d+=dist_data[agent.goal][cp]
-    #                 best = fast_min(best,d)
-    #             compl_dists[(start_point,frozenset(waypoint_combi))] = best
+        compl_dists = dict()
 
-    heuristic_data = {"direct":dist_data,"wp":compl_dists}
+        heuristic_data = {"direct":dist_data,"wp":compl_dists}
 
     # print("go")
 
-    r = Node(agents=list(maze.agents))
+    r = Node(agents=list(maze.agents),constraints=constraints)
     r.solution = solve(maze, r.constraints,data=heuristic_data,cors=cors)
     r.cost = r.solution.sum_of_individual_costs()
     # return r.solution
@@ -680,7 +676,7 @@ def CBS(maze,pc=True):
         p = min(open_set, key=lambda x: x.cost+x.h)
         open_set.remove(p)
         conflict = p.solution.find_conflict(list_all=True)
-        print(p.cost,len(conflict),len(p.constraints),len(p.corcons))
+        print(p.cost,len(conflict),p.h,len(p.constraints),len(p.corcons))
         if pc:
             conflict = p.solution.find_worst_conflict(maze, heuristic_data, p.constraints)
         else:
@@ -697,6 +693,7 @@ def CBS(maze,pc=True):
             a.corcons = p.corcons
             a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data,cors=cors,corcon=a.corcons)
             if a.solution:
+                a.h = len(a.solution.find_conflict(list_all=True))*0.00001
                 a.cost = a.solution.sum_of_individual_costs()
                 if a.cost == p.cost and len(a.solution.find_conflict(list_all=True)) < len(
                         p.solution.find_conflict(list_all=True)):
@@ -708,6 +705,7 @@ def CBS(maze,pc=True):
             b.corcons = p.corcons
             b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data,cors=cors,corcon=b.corcons)
             if b.solution:
+                b.h = len(b.solution.find_conflict(list_all=True)) * 0.00001
                 b.cost = b.solution.sum_of_individual_costs()
                 if b.cost == p.cost and len(b.solution.find_conflict(list_all=True)) < len(
                         p.solution.find_conflict(list_all=True)):
@@ -728,6 +726,7 @@ def CBS(maze,pc=True):
             a.corcons = p.corcons + [CorrConstraint(conflict.agent_1,conflict.corr,conflict.place,conflict.time,conflict.time+conflict.corr.delta(conflict.place)+len(conflict.corr)+2,conflict.order[1])]
             a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data,cors=cors,corcon=a.corcons)
             if a.solution:
+                a.h = len(a.solution.find_conflict(list_all=True)) * 0.00001
                 a.cost = a.solution.sum_of_individual_costs()
                 if a.cost == p.cost and len(a.solution.find_conflict(list_all=True)) < len(
                         p.solution.find_conflict(list_all=True)):
@@ -740,6 +739,7 @@ def CBS(maze,pc=True):
                                                     conflict.time + conflict.corr.delta(conflict.place)+len(conflict.corr)+2,conflict.order[0])]
             b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data,cors=cors,corcon=b.corcons)
             if b.solution:
+                b.h = len(b.solution.find_conflict(list_all=True)) * 0.00001
                 b.cost = b.solution.sum_of_individual_costs()
                 if b.cost == p.cost and len(b.solution.find_conflict(list_all=True)) < len(
                         p.solution.find_conflict(list_all=True)):
@@ -759,6 +759,7 @@ def CBS(maze,pc=True):
             a.corcons = p.corcons + [CorrConstraint(conflict.agent_1,conflict.corr,conflict.place_1,conflict.time,conflict.time+conflict.corr.delta(conflict.place_1)+len(conflict.corr)+3,conflict.order[1])]
             a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data,cors=cors,corcon=a.corcons)
             if a.solution:
+                a.h = len(a.solution.find_conflict(list_all=True)) * 0.00001
                 a.cost = a.solution.sum_of_individual_costs()
                 if a.cost == p.cost and len(a.solution.find_conflict(list_all=True)) < len(
                         p.solution.find_conflict(list_all=True)):
@@ -771,6 +772,7 @@ def CBS(maze,pc=True):
                                                     conflict.time + conflict.corr.delta(conflict.place_2)+len(conflict.corr)+3,conflict.order[0])]
             b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data,cors=cors,corcon=b.corcons)
             if b.solution:
+                b.h = len(b.solution.find_conflict(list_all=True)) * 0.00001
                 b.cost = b.solution.sum_of_individual_costs()
                 if b.cost == p.cost and len(b.solution.find_conflict(list_all=True)) < len(
                         p.solution.find_conflict(list_all=True)):
@@ -789,6 +791,7 @@ def CBS(maze,pc=True):
             a.corcons = p.corcons
             a.solution = replan(maze, a.constraints,conflict.agent_1,p,data=heuristic_data,cors=cors,corcon=a.corcons)
             if a.solution:
+                a.h = len(a.solution.find_conflict(list_all=True)) * 0.00001
                 a.cost = a.solution.sum_of_individual_costs()
                 if a.cost == p.cost and len(a.solution.find_conflict(list_all=True)) < len(
                         p.solution.find_conflict(list_all=True)):
@@ -800,6 +803,7 @@ def CBS(maze,pc=True):
             b.corcons = p.corcons
             b.solution = replan(maze, b.constraints,conflict.agent_2,p,data=heuristic_data,cors=cors,corcon=b.corcons)
             if b.solution:
+                b.h = len(b.solution.find_conflict(list_all=True)) * 0.00001
                 b.cost = b.solution.sum_of_individual_costs()
                 if b.cost == p.cost and len(b.solution.find_conflict(list_all=True)) < len(
                         p.solution.find_conflict(list_all=True)):
