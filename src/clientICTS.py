@@ -5,7 +5,7 @@ from src.ICTS import ICTS
 from src.agent import Agent
 from src.maze import Maze
 
-benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",(3), "ICTS", "WOEP WOEP", False)
+benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",(47), "ICTS", "WOEP WOEP WOEP", True)
 # benchmarker = MapfwBenchmarker("b76d216Ac99EbA4E",(2,), "CBS", "WDG_wip", False)
 
 for problem in benchmarker:

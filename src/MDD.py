@@ -31,11 +31,11 @@ class MDD:
                         tf = p[1] - frozenset({w})
                         if perfect_heuristic((w,), goal, tf, data) < d - i:
                             g[-1].add((w, tf))
-                            per[-1][w].add(p[0])
-                            child[-1][p[0]].add(w)
+                            per[-1][(w, tf)].add(p)
+                            child[-1][p].add((w, tf))
             child.append(defaultdict(set))
 
-        t = [[goal]]
+        t = [[(goal,frozenset())]]
         tc = []
         tp = []
         for i in range(d - 1):
@@ -87,7 +87,7 @@ class MDD:
                         ro = x[1]
                         # ltp = {w for w in lp if w in lo}
                         # rtp = {w for w in rp if w in ro}
-                        if lc!=rc and (not (lo==rc and ro==lc)):
+                        if lc[0]!=rc[0] and (not (lo[0]==rc[0] and ro[0]==lc[0])):
                             ng[-1].add((lc,rc))
                             per[-1][(lc,rc)] = x
             per.append(defaultdict(set))

@@ -9,7 +9,7 @@ def tdp(start, waypoints, goal, data):
     """
     if (start,waypoints,goal) in data["wp"]:
         return data["wp"][(start,waypoints,goal)]
-    print(len(waypoints))
+    # print(len(waypoints))
     memo = {((waypoint,),waypoint):data["direct"][goal][waypoint] for waypoint in waypoints}
     # memo = {((start,),start):0}
     # for p in waypoints:

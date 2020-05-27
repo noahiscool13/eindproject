@@ -225,7 +225,7 @@ def astarwpcathc(maze,agent, start, goal, waypoints, h, upper,data, constraints=
     if (start[0], start[1], 0) in constraints:
         return None
 
-    start_state = (start, 0, frozenset(waypoints),False)
+    start_state = (start, 0, frozenset(waypoints)-frozenset({start}),False)
 
     came_from = dict()
     gscore = defaultdict(constant_factory(inf))
@@ -676,7 +676,7 @@ def CBS(maze,pc=True,heuristic_data=None,cors=None,rec=False,constraints=None):
         p = min(open_set, key=lambda x: x.cost+x.h)
         open_set.remove(p)
         conflict = p.solution.find_conflict(list_all=True)
-        print(p.cost,len(conflict),p.h,len(p.constraints),len(p.corcons))
+        # print(p.cost,len(conflict),p.h,len(p.constraints),len(p.corcons))
         if pc:
             conflict = p.solution.find_worst_conflict(maze, heuristic_data, p.constraints)
         else:

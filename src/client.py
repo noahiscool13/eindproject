@@ -1,23 +1,38 @@
 from mapfw import MapfwBenchmarker, get_all_benchmarks
 
-from src.CBS import CBS
-from src.agent import Agent
-from src.maze import Maze
 
-benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",(61), "CBS", "fastTsp", False)
-# benchmarker = MapfwBenchmarker("b76d216Ac99EbA4E",(2,), "CBS", "WDG_wip", False)
 
-for problem in benchmarker:
-    print(problem)
+def solver(problem):
+    from src.CBS import CBS
+    from src.agent import Agent
+    from src.maze import Maze
+    # print(problem)
     n_agents = len(problem.starts)
     agents = [Agent(f"[{x * 347 % 256},{x * 9231 % 256}]", tuple(problem.starts[x]), tuple(problem.starts[x]),
                     tuple(problem.goals[x]), set(tuple(n) for n in problem.waypoints[x])) for x in
               range(n_agents)]
     maze = Maze(problem.grid, agents)
 
-    paths = CBS(maze,False)
-    print([[y[0] for y in x.path] for x in paths])
-    problem.add_solution([[y[0] for y in x.path] for x in paths])
+    paths = CBS(maze, False)
+    # print([[y[0] for y in x.path] for x in paths])
+    return [[y[0] for y in x.path] for x in paths]
+
+if __name__ == '__main__':
+
+    benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",(70), "CBS", "prog_test", False, solver=solver,cores=4)
+    # benchmarker = MapfwBenchmarker("b76d216Ac99EbA4E",(70,), "CBS", "WDG_wip", False, solver=solver)
+    benchmarker.run()
+# for problem in benchmarker:
+#     print(problem)
+#     n_agents = len(problem.starts)
+#     agents = [Agent(f"[{x * 347 % 256},{x * 9231 % 256}]", tuple(problem.starts[x]), tuple(problem.starts[x]),
+#                     tuple(problem.goals[x]), set(tuple(n) for n in problem.waypoints[x])) for x in
+#               range(n_agents)]
+#     maze = Maze(problem.grid, agents)
+#
+#     paths = CBS(maze,False)
+#     print([[y[0] for y in x.path] for x in paths])
+#     problem.add_solution([[y[0] for y in x.path] for x in paths])
 
 
 

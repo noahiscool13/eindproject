@@ -72,6 +72,7 @@ def ICTS(maze):
 
             for x in range(len(mdd.p)-1,-1,-1):
                 p.append(mdd.p[x][p[-1]])
+            p = [[n[0] for n in x]for x in p]
             p = list(zip(*p[::-1]))
             print(p)
             return p
