@@ -17,7 +17,7 @@ def solver(problem):
     # print([[y[0] for y in x.path] for x in paths])
     return [[y[0] for y in x.path] for x in paths]
 
-if __name__ == '__main__':
+def main():
 
     benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",(70), "CBS", "prog_test", False, solver=solver,cores=4)
     # benchmarker = MapfwBenchmarker("b76d216Ac99EbA4E",(70,), "CBS", "WDG_wip", False, solver=solver)
