@@ -1,5 +1,6 @@
 from copy import deepcopy
 from queue import PriorityQueue
+from time import time
 
 from math import inf
 
@@ -90,7 +91,9 @@ def tdp(start, waypoints, goal, data):
         """
     if (start, waypoints, goal) in data["wp"]:
         return data["wp"][(start, waypoints, goal)]
-    print(len(waypoints))
+    print(len(waypoints), end=" ")
+    if len(waypoints) in [13] or 1:
+        timer = time()
 
     waypoints = list(waypoints)
 
@@ -122,6 +125,10 @@ def tdp(start, waypoints, goal, data):
 
     data["wp"][(start, frozenset(waypoints), goal)] = dist
     # print(dist)
+
+    if len(waypoints) in [13] or 1:
+        print(time()-timer)
+
     return dist
 
 if __name__ == '__main__':

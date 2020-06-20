@@ -1,11 +1,17 @@
 from mapfw import MapfwBenchmarker, get_all_benchmarks
 
 
-
 def solver(problem):
     from src.CBS import CBS
     from src.agent import Agent
     from src.maze import Maze
+    # if problem.grid[0] == [1,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0]:
+    #     print(problem.grid)
+    #     import pickle
+    #     f = open("sub1","wb")
+    #     pickle.dump(problem,f)
+    #     f.close()
+
     # print(problem)
     n_agents = len(problem.starts)
     agents = [Agent(f"[{x * 347 % 256},{x * 9231 % 256}]", tuple(problem.starts[x]), tuple(problem.starts[x]),
@@ -13,15 +19,20 @@ def solver(problem):
               range(n_agents)]
     maze = Maze(problem.grid, agents)
 
-    paths = CBS(maze, False)
+    paths = CBS(maze, True)
     # print([[y[0] for y in x.path] for x in paths])
     return [[y[0] for y in x.path] for x in paths]
 
-def main():
 
-    benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",(70), "CBS", "prog_test", False, solver=solver,cores=4)
-    # benchmarker = MapfwBenchmarker("b76d216Ac99EbA4E",(70,), "CBS", "WDG_wip", False, solver=solver)
+def main():
+    benchmarker = MapfwBenchmarker("8E475BB3EDaaFc0e",(67), "CBS", "no-cat-local", True, solver=solver,cores=13,timeout=None)
+    # benchmarker = MapfwBenchmarker("b76d216Ac99EbA4E", 23, "CBS", "prog_test", False, solver=solver, cores=4,
+    #                                timeout=None, baseURL="http://127.0.0.1:5000/")
     benchmarker.run()
+
+
+if __name__ == '__main__':
+    main()
 # for problem in benchmarker:
 #     print(problem)
 #     n_agents = len(problem.starts)
@@ -33,8 +44,6 @@ def main():
 #     paths = CBS(maze,False)
 #     print([[y[0] for y in x.path] for x in paths])
 #     problem.add_solution([[y[0] for y in x.path] for x in paths])
-
-
 
 
 # class Agent:

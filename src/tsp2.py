@@ -1,4 +1,5 @@
 from queue import Queue
+from time import time
 
 from math import inf
 
@@ -7,8 +8,13 @@ def tdp(start, waypoints, goal, data):
     """
     Traveling duck problem :)
     """
+
     if (start,waypoints,goal) in data["wp"]:
         return data["wp"][(start,waypoints,goal)]
+
+    # print(len(waypoints), end=" ")
+    # if len(waypoints) in [13] or 1:
+    #     timer = time()
     # print(len(waypoints))
     memo = {((waypoint,),waypoint):data["direct"][goal][waypoint] for waypoint in waypoints}
     # memo = {((start,),start):0}
@@ -53,4 +59,6 @@ def tdp(start, waypoints, goal, data):
     for p in waypoints:
         data["wp"][(p, frozenset(waypoints), goal)] = memo[(waypoints,p)]
 
+    # if len(waypoints) in [13] or 1:
+    #     print(time()-timer)
     return data["wp"][(start, frozenset(waypoints), goal)]

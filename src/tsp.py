@@ -8,13 +8,17 @@ dists = {1:{1:0,2:5,3:2,4:8},
          3:{1:2,2:6,3:0,4:4},
          4:{1:8,2:1,3:4,4:0}}
 
-def tdp(start, waypoints, goal, data):
+def tdp(start, waypoints, goal, data,hitrate = [0,0]):
     """
     Traveling duck problem :)
     """
+    if start == "hits?":
+        return hitrate
+    hitrate[0]+=1
     if (start,waypoints,goal) in data["wp"]:
+        hitrate[1] += 1
         return data["wp"][(start,waypoints,goal)]
-    print(len(waypoints))
+    # print(len(waypoints))
     memo = {((start,),start):0}
     # for p in waypoints:
     #     memo[] = dists["direct"][p][start]

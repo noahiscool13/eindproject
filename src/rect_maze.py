@@ -79,10 +79,10 @@ if __name__ == '__main__':
 
     pcl = []
     npcl = []
-    datapoints = list(range(8,21,2))
+    datapoints = list(range(5,6,1))
     t = time()
     for d in datapoints:
-        maps = [rect((8, 8), d,0.15) for _ in range(50)]
+        maps = [rect((8, 8), d,0.15) for _ in range(3)]
         print(d)
         with Pool() as p:
             r = p.map(test, [(map,True) for map in maps])

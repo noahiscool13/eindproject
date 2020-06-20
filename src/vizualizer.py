@@ -14,7 +14,7 @@ def name_from_pixel(pixel):
     return str(list(pixel[:2]))
 
 def create_frame(maze, paths, t):
-    size = 8
+    size = 20
     im = ImageOps.invert(Image.fromarray(maze.grid * 255))
     im = im.resize((im.width * size, im.height * size),Image.NEAREST)
     im = im.convert('RGB')
@@ -47,7 +47,7 @@ def create_frame(maze, paths, t):
 
 
 def create_gif(file, maze, paths, speed):
-    im = [create_frame(maze, paths, t) for t in stepped_range(paths.max_of_individual_costs(),1)]
+    im = [create_frame(maze, paths, t) for t in stepped_range(paths.max_of_individual_costs(),3)]
     for x in range(len(im)):
         im[x] = im[x]
     im[0].save(file, save_all=True, append_images=im[1:], duration=speed, loop=0)

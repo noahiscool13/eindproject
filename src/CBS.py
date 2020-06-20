@@ -252,7 +252,7 @@ def astarwpcathc(maze,agent, start, goal, waypoints, h, upper,data, constraints=
                 if agent == path.agent:
                     continue
                 if path[fast_min(neighbor[1], len(path) - 1)][0] == neighbor[0]:
-                    cat_hit += 0.001
+                    cat_hit += 0.0001
                     break
             tentative_gscore = gscore[current] + 1 + cat_hit
             if neighbor in close_set and tentative_gscore>gscore[neighbor]:
@@ -594,6 +594,9 @@ def replan(maze, constraints, agent, upper,data=None,cors=[],corcon=[]):
     #                      SingleAgentCosntraints.from_constraints(agent, constraints))
     a_path = astarwpcathc(maze, agent, agent.start, agent.goal, agent.waypoints, perfect_heuristic, upper, data,
                          SingleAgentCosntraints.from_constraints(agent, constraints),cors,[constraint for constraint in corcon if constraint.agent == agent])
+    # a_path = astarwpcathc(maze, agent, agent.start, agent.goal, agent.waypoints, lambda *args:0, upper, data,
+    #                       SingleAgentCosntraints.from_constraints(agent, constraints), cors,
+    #                       [constraint for constraint in corcon if constraint.agent == agent])
     if a_path is None:
         # print("No Path with constraints")
         return None
@@ -646,6 +649,7 @@ def CBS(maze,pc=True,heuristic_data=None,cors=None,rec=False,constraints=None):
         p = find_corridor_locs(maze)
 
         cors = merge(p)
+        # cors = []
 
     if not heuristic_data:
         dist_data = dict()
@@ -671,12 +675,15 @@ def CBS(maze,pc=True,heuristic_data=None,cors=None,rec=False,constraints=None):
 
     open_set = {r}
     c = 0
+    avoindace = 0
     while open_set:
         c+=1
         p = min(open_set, key=lambda x: x.cost+x.h)
         open_set.remove(p)
         conflict = p.solution.find_conflict(list_all=True)
+        # print(p.cost,len(conflict),len(p.constraints))
         # print(p.cost,len(conflict),p.h,len(p.constraints),len(p.corcons))
+
         if pc:
             conflict = p.solution.find_worst_conflict(maze, heuristic_data, p.constraints)
         else:
@@ -684,10 +691,14 @@ def CBS(maze,pc=True,heuristic_data=None,cors=None,rec=False,constraints=None):
 
         if conflict is None:
             # print(p.cost)
+            # print(tdp("hits?",0,0,0))
+            # print(c,avoindace)
             return p.solution
+            # pass
         if pc:
             conflict = conflict[0]
         if isinstance(conflict, PointConflict):
+            # print("point")
             a = Node()
             a.constraints = p.constraints + [PointConstraint(conflict.agent_1, conflict.place, conflict.time)]
             a.corcons = p.corcons
@@ -698,6 +709,7 @@ def CBS(maze,pc=True,heuristic_data=None,cors=None,rec=False,constraints=None):
                 if a.cost == p.cost and len(a.solution.find_conflict(list_all=True)) < len(
                         p.solution.find_conflict(list_all=True)):
                     open_set.add(a)
+                    avoindace+=1
                     continue
 
             b = Node()
@@ -710,6 +722,7 @@ def CBS(maze,pc=True,heuristic_data=None,cors=None,rec=False,constraints=None):
                 if b.cost == p.cost and len(b.solution.find_conflict(list_all=True)) < len(
                         p.solution.find_conflict(list_all=True)):
                     open_set.add(b)
+                    avoindace += 1
                     continue
                 open_set.add(b)
             if a.solution:
@@ -786,6 +799,7 @@ def CBS(maze,pc=True,heuristic_data=None,cors=None,rec=False,constraints=None):
 
 
         elif isinstance(conflict, EdgeConflict):
+            # print("edge")
             a = Node()
             a.constraints = p.constraints + [EdgeConstraint(conflict.agent_1,conflict.place_1, conflict.place_2, conflict.time + 1)]
             a.corcons = p.corcons
@@ -796,6 +810,7 @@ def CBS(maze,pc=True,heuristic_data=None,cors=None,rec=False,constraints=None):
                 if a.cost == p.cost and len(a.solution.find_conflict(list_all=True)) < len(
                         p.solution.find_conflict(list_all=True)):
                     open_set.add(a)
+                    avoindace += 1
                     continue
 
             b = Node()
@@ -808,22 +823,23 @@ def CBS(maze,pc=True,heuristic_data=None,cors=None,rec=False,constraints=None):
                 if b.cost == p.cost and len(b.solution.find_conflict(list_all=True)) < len(
                         p.solution.find_conflict(list_all=True)):
                     open_set.add(b)
+                    avoindace += 1
                     continue
                 open_set.add(b)
             if a.solution:
                 open_set.add(a)
 
-        elif isinstance(conflict, SlideConflict):
-            a = Node()
-            a.constraints = p.constraints + [PointConstraint(conflict.agent_1, conflict.place, conflict.time + 1)]
-            a.solution = solve(maze, a.constraints,p)
-            if a.solution:
-                a.cost = a.solution.sum_of_individual_costs()
-                open_set.add(a)
-
-            b = Node()
-            b.constraints = p.constraints + [PointConstraint(conflict.agent_2, conflict.place, conflict.time)]
-            b.solution = solve(maze, b.constraints,p)
-            if b.solution:
-                b.cost = b.solution.sum_of_individual_costs()
-                open_set.add(b)
+        # elif isinstance(conflict, SlideConflict):
+        #     a = Node()
+        #     a.constraints = p.constraints + [PointConstraint(conflict.agent_1, conflict.place, conflict.time + 1)]
+        #     a.solution = solve(maze, a.constraints,p)
+        #     if a.solution:
+        #         a.cost = a.solution.sum_of_individual_costs()
+        #         open_set.add(a)
+        #
+        #     b = Node()
+        #     b.constraints = p.constraints + [PointConstraint(conflict.agent_2, conflict.place, conflict.time)]
+        #     b.solution = solve(maze, b.constraints,p)
+        #     if b.solution:
+        #         b.cost = b.solution.sum_of_individual_costs()
+        #         open_set.add(b)
